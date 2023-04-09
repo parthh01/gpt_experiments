@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "gpt-experiments"
+version = "0.1.0"
+description = ""
+authors = ["Parth Bhagat <parthb@nyu.edu>"]
+readme = "README.md"
+packages = [{include = "gpt_experiments"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+tiktoken = "^0.3.3"
+torch = "^2.0.0"
+torchvision = "^0.15.1"
+torchaudio = "^2.0.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
