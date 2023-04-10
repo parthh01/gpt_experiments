@@ -36,13 +36,19 @@ class StackExchangeXMLDataset:
         translated_rows = self.translate(formatted_rows)
         return translated_rows
     
+    def pad_input(self,p,length,before=True):
+        return [self.TOKEN_MAP["<|fim_middle|>"]]*(length - len(p)) + p if before else p + [self.TOKEN_MAP["<|fim_middle|>"]]*(length - len(p))
+    
     def get_batch(self,X,batch_size):
         idxs = torch.randint(len(X),(batch_size,))
         batch = [X[i] for i in idxs]
-        context_idx = [p.index(self.TOKEN_MAP["<|endofprompt|>"]) for p in batch]
         target_idx = [len(p) for p in batch]
-        batch_x = torch.stack([torch.tensor(x[:t-1],dtype=torch.long) for x,t in zip(batch,target_idx)])
-        batch_y = torch.stack([torch.tensor(x[c+1:],dtype=torch.long) for x,c in zip(batch,context_idx)])
+        
+        max_X_size = max(target_idx)-1
+        max_Y_size = max([len(p) - p.index(self.TOKEN_MAP["<|endofprompt|>"]) for p in batch]) -1
+        context_idx = [p.index(self.TOKEN_MAP["<|endofprompt|>"]) for p in batch]
+        batch_x = torch.stack([torch.tensor(self.pad_input(x[:-1],max_X_size),dtype=torch.long) for x in batch])
+        batch_y = torch.stack([torch.tensor(self.pad_input(x[c+1:],max_Y_size),dtype=torch.long) for x,c in zip(batch,context_idx)])
         return batch_x,batch_y
         
         
@@ -50,8 +56,9 @@ class StackExchangeXMLDataset:
         
         
         
+        
     
-    def __init__(self,filepath,enc_type="r50k_base",train_val_split=0.8,SPECIAL_TOKENS = ['<|endofprompt|>','<|endoftext|>']):
+    def __init__(self,filepath,enc_type="cl100k_base",train_val_split=0.8,SPECIAL_TOKENS = ['<|endofprompt|>','<|endoftext|>','<|fim_middle|>']): #alternate encoding: r50k_base, using the fim middle token as padding
         torch.manual_seed(7)
         custom_enc = tiktoken.get_encoding(enc_type)
         self.enc = tiktoken.Encoding(
