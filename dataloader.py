@@ -39,16 +39,17 @@ class StackExchangeXMLDataset:
     def pad_input(self,p,length,before=True):
         return [self.TOKEN_MAP["<|fim_middle|>"]]*(length - len(p)) + p if before else p + [self.TOKEN_MAP["<|fim_middle|>"]]*(length - len(p))
     
-    def get_batch(self,X,batch_size):
+    def get_batch(self,X,batch_size,pad=True):
         idxs = torch.randint(len(X),(batch_size,))
         batch = [X[i] for i in idxs]
         target_idx = [len(p) for p in batch]
         
         max_X_size = max(target_idx)-1
         max_Y_size = max([len(p) - p.index(self.TOKEN_MAP["<|endofprompt|>"]) for p in batch]) -1
+        max_token_limit = max(max_X_size,max_Y_size)
         context_idx = [p.index(self.TOKEN_MAP["<|endofprompt|>"]) for p in batch]
-        batch_x = torch.stack([torch.tensor(self.pad_input(x[:-1],max_X_size),dtype=torch.long) for x in batch])
-        batch_y = torch.stack([torch.tensor(self.pad_input(x[c+1:],max_Y_size),dtype=torch.long) for x,c in zip(batch,context_idx)])
+        batch_x = torch.stack([torch.tensor(self.pad_input(x[:-1],max_token_limit) if pad else x[:-1] ,dtype=torch.long) for x in batch])
+        batch_y = torch.stack([torch.tensor(self.pad_input(x[c+1:],max_token_limit,before=False) if pad else x[c+1:],dtype=torch.long) for x,c in zip(batch,context_idx)])
         return batch_x,batch_y
         
         
@@ -58,7 +59,7 @@ class StackExchangeXMLDataset:
         
         
     
-    def __init__(self,filepath,enc_type="cl100k_base",train_val_split=0.8,SPECIAL_TOKENS = ['<|endofprompt|>','<|endoftext|>','<|fim_middle|>']): #alternate encoding: r50k_base, using the fim middle token as padding
+    def __init__(self,filepath,enc_type="cl100k_base",train_val_split=0.8,SPECIAL_TOKENS = ['<|endofprompt|>','<|endoftext|>','<|fim_middle|>']): #alternate encoding: r50k_base,cl100k_base using the fim middle token as padding
         torch.manual_seed(7)
         custom_enc = tiktoken.get_encoding(enc_type)
         self.enc = tiktoken.Encoding(
@@ -68,7 +69,8 @@ class StackExchangeXMLDataset:
             pat_str=custom_enc._pat_str,
             mergeable_ranks=custom_enc._mergeable_ranks,
             special_tokens={
-                **custom_enc._special_tokens
+                **custom_enc._special_tokens, 
+                
             }
         )
         self.TOKEN_MAP = {token: self.enc.encode(token,allowed_special={*SPECIAL_TOKENS})[0] for token in SPECIAL_TOKENS}
